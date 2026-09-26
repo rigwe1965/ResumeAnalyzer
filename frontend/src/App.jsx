@@ -1,38 +1,43 @@
 import { useState } from 'react'
 import './App.css'
+import UploadForm from './components/UploadForm'
+import ReportView from './components/ReportView'
+import HistoryList from './components/HistoryList'
 
 function App() {
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(false)
-
-  const pingGemini = async () => {
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const res = await fetch('/api/ping-gemini')
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Request failed')
-      }
-      setResult(data.response)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [tab, setTab] = useState('analyze')
+  const [report, setReport] = useState(null)
 
   return (
     <section id="center">
       <h1>Resume Analyzer</h1>
-      <p>Full-stack smoke test: frontend &rarr; backend &rarr; Gemini</p>
-      <button type="button" onClick={pingGemini} disabled={loading}>
-        {loading ? 'Pinging Gemini...' : 'Ping Gemini'}
-      </button>
-      {result && <p data-testid="gemini-result">{result}</p>}
-      {error && <p data-testid="gemini-error" style={{ color: 'red' }}>{error}</p>}
+      <p>Upload a resume and a job description to get a fitment score and recommendations.</p>
+
+      <nav className="tabs">
+        <button
+          type="button"
+          className={tab === 'analyze' ? 'active' : ''}
+          onClick={() => setTab('analyze')}
+        >
+          Analyze
+        </button>
+        <button
+          type="button"
+          className={tab === 'history' ? 'active' : ''}
+          onClick={() => setTab('history')}
+        >
+          History
+        </button>
+      </nav>
+
+      {tab === 'analyze' && (
+        <>
+          <UploadForm onAnalyzed={setReport} />
+          <ReportView report={report} />
+        </>
+      )}
+
+      {tab === 'history' && <HistoryList />}
     </section>
   )
 }
