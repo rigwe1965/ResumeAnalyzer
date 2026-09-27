@@ -4,9 +4,10 @@ Reference notes for AI agents (Claude Code and others) working in this repositor
 
 ## Project
 
-**Resume Analyzer** — currently a fresh/empty repo (no application code yet). This file
-exists to record the tooling and integrations already wired up so future sessions don't
-have to rediscover them.
+**Resume Analyzer** — a working FastAPI + React app. Upload a resume (`.pdf`/`.md`) and a
+job description; Gemini returns a fitment score plus recommendations, which are persisted
+to SQLite and browsable in a history view. This file exists to record the tooling,
+integrations, and implemented architecture so future sessions don't have to rediscover them.
 
 - Repo: https://github.com/Obinwanne1/Resume_Analyzer
 - Default branch: `main`
@@ -57,45 +58,56 @@ PR descriptions additionally end with:
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-## Product roadmap (from Jira: KAN-5, KAN-6, KAN-7)
+## Implemented architecture
 
-These three tickets define the intended tech stack and build order for this app. Treat
-them as the source of truth for architecture until real code/ADRs supersede them.
+Tech stack: **FastAPI + React/Vite + Gemini API + SQLite**. Built out across Jira tickets
+KAN-5 (scaffolding), KAN-6 (analysis feature), and KAN-7 (SQLite persistence) — all three
+are done; treat the code below as the source of truth over the original ticket text.
 
-### KAN-5 — Project scaffolding (FastAPI + React + Gemini smoke test)
-- Backend: **FastAPI**, run locally via `uvicorn`.
-- Frontend: **React (Vite)**, run locally via `npm run dev`.
-- One test endpoint `/api/ping-gemini`: sends a hardcoded prompt to the **Gemini API**
-  and returns the response.
-- Frontend has one button that calls this endpoint and displays the result — proves
-  frontend → backend → Gemini wiring before real feature work starts.
-- No database work in this task.
-- `.env.example` must include a `GEMINI_API_KEY` placeholder; the real key must never
-  be committed (`.gitignore` the real `.env`).
+### Backend (`backend/`)
+- `app/main.py` — FastAPI app (`Resume Analyzer API`). CORS allows `http://localhost:5173`
+  only. Reads `GEMINI_API_KEY` and `GEMINI_MODEL` (default `gemini-3.8-flash`) from `.env`.
+  - `GET /api/ping-gemini` — smoke-test endpoint, sends a hardcoded prompt to Gemini.
+  - `POST /api/analyze` — multipart form (`resume` file + `job_description` text). Extracts
+    resume text, calls Gemini for a structured `AnalysisReport`, saves it, returns the
+    saved `AnalysisRecord`.
+  - `GET /api/analyses` — list of `AnalysisSummary` (id, filename, score, created_at),
+    newest first.
+  - `GET /api/analyses/{id}` — full `AnalysisRecord` for one saved analysis, 404 if missing.
+- `app/resume_parser.py` — extracts text from `.pdf` (via `pypdf`) or `.md` uploads.
+- `app/gemini_client.py` — calls Gemini and parses its response into an `AnalysisReport`.
+- `app/schemas.py` — Pydantic models: `AnalysisReport` (score, missing_keywords,
+  skill_gaps, phrasing_suggestions), `AnalysisRecord` (adds id/resume_filename/created_at),
+  `AnalysisSummary` (list-view subset).
+- `app/db.py` — SQLite (`backend/data/resume_analyzer.db`, auto-created on startup via
+  `init_db()`). Single `analyses` table; JSON-encodes the list fields as TEXT columns.
+- Run locally: `uvicorn app.main:app --reload` from `backend/` (needs `GEMINI_API_KEY` in
+  `backend/.env`).
 
-### KAN-6 — Resume + JD upload → analysis report (core feature)
-- User uploads a resume (`.pdf` or `.md`) and pastes/uploads a job description
-  (plain text paste).
-- Backend extracts text from the resume file, sends resume text + JD text to Gemini,
-  and returns a structured report: a fitment score plus recommendations (missing
-  keywords, skill gaps, phrasing suggestions).
-- Frontend renders the report in a readable format after upload.
-- Must handle errors gracefully (bad file type, empty JD, etc.).
+### Frontend (`frontend/`)
+- React + Vite, plain CSS (no component library). Dev proxy sends `/api/*` to
+  `http://localhost:8000` (`vite.config.js`).
+- `src/App.jsx` — top-level layout + tab switcher between **Analyze** and **History**.
+- `src/components/UploadForm.jsx` — resume file input + job description textarea, posts
+  to `/api/analyze`.
+- `src/components/ReportView.jsx` — renders an `AnalysisRecord`/report: score, missing
+  keywords, skill gaps, phrasing suggestions.
+- `src/components/HistoryList.jsx` — fetches `/api/analyses`, lists past runs, fetches
+  and shows one full record (via `ReportView`) on selection.
+- **Visual theme**: a "redlined document / editor's markup" look — serif body copy
+  (`Source Serif 4`) with a handwritten accent font (`Kalam`) for red-ink annotations
+  (score stamp, keyword underlines, margin carets). Theme tokens (`--paper`, `--ink`,
+  `--red`, `--rule`, etc.) live in `src/index.css` as CSS custom properties, with a
+  `prefers-color-scheme: dark` override block — keep new UI on these tokens rather than
+  hardcoding colors so dark mode stays correct. Run `npm run dev` from `frontend/`.
+- Known environment issue (not code-related): `npm run lint` (oxlint) fails on this
+  machine — a Windows Application Control policy blocks its native binding
+  (`oxlint.win32-x64-msvc.node`). Use `npm run build` to catch compile errors instead.
 
-### KAN-7 — Persist analysis results to SQLite
-- Add **SQLite** storage: every analysis run (resume text, JD text, fitment score,
-  recommendations, timestamp) is saved immediately after KAN-6's report is generated.
-- Add a GET endpoint (+ basic frontend view) listing past analyses with score and
-  timestamp — a simple history view so results survive a page refresh.
-- DB file is created automatically on first run if it doesn't exist (no manual
-  migration step expected at this stage).
+## Notes for future work
 
-## Notes for scaffolding future work
-
-- No backend or frontend code exists yet as of this writing. Use standard, idiomatic
-  layouts (`backend/` for FastAPI, `frontend/` for the Vite React app) unless the user
-  specifies otherwise.
-- Tech stack, per the roadmap above: **FastAPI + React/Vite + Gemini API + SQLite**
-  (SQLite arrives in KAN-7, not before).
-- Resume parsing must support both PDF and Markdown input (KAN-6).
+- Resume parsing supports `.pdf` and `.md` only — reject/handle other types explicitly.
 - Never commit real API keys — use `.env.example` placeholders and `.gitignore` real `.env` files.
+- No browser automation tool (chromium-cli, browser MCP) is available in this environment;
+  verify frontend changes via `npm run build` + manual review, and say so explicitly rather
+  than claiming a visual check that didn't happen.
