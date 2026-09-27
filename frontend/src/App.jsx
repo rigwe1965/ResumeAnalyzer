@@ -9,14 +9,17 @@ function App() {
   const [report, setReport] = useState(null)
 
   return (
-    <section id="center">
-      <h1>Resume Analyzer</h1>
-      <p>Upload a resume and a job description to get a fitment score and recommendations.</p>
+    <div className="frame">
+      <header className="letterhead">
+        <h1>Resume Analyzer</h1>
+        <p className="tagline">Get your resume marked up before you hit send.</p>
+      </header>
 
-      <nav className="tabs">
+      <nav className="tab-row" aria-label="Views">
         <button
           type="button"
           className={tab === 'analyze' ? 'active' : ''}
+          aria-current={tab === 'analyze'}
           onClick={() => setTab('analyze')}
         >
           Analyze
@@ -24,21 +27,28 @@ function App() {
         <button
           type="button"
           className={tab === 'history' ? 'active' : ''}
+          aria-current={tab === 'history'}
           onClick={() => setTab('history')}
         >
           History
         </button>
       </nav>
 
-      {tab === 'analyze' && (
-        <>
-          <UploadForm onAnalyzed={setReport} />
-          <ReportView report={report} />
-        </>
-      )}
+      <main className="page">
+        {tab === 'analyze' && (
+          <>
+            <p className="page-intro">
+              Drop in a resume and paste the job posting. You'll get it back with keywords,
+              gaps, and phrasing marked in red.
+            </p>
+            <UploadForm onAnalyzed={setReport} />
+            <ReportView report={report} />
+          </>
+        )}
 
-      {tab === 'history' && <HistoryList />}
-    </section>
+        {tab === 'history' && <HistoryList />}
+      </main>
+    </div>
   )
 }
 

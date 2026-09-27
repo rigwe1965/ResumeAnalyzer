@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import ReportView from './ReportView'
 
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 function HistoryList() {
   const [analyses, setAnalyses] = useState([])
   const [selected, setSelected] = useState(null)
@@ -14,7 +18,7 @@ function HistoryList() {
       try {
         const res = await fetch('/api/analyses')
         const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || 'Failed to load history')
+        if (!res.ok) throw new Error(data.detail || "Couldn't open the history folder.")
         if (!cancelled) setAnalyses(data)
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -34,41 +38,37 @@ function HistoryList() {
     try {
       const res = await fetch(`/api/analyses/${id}`)
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Failed to load analysis')
+      if (!res.ok) throw new Error(data.detail || "Couldn't open that file.")
       setSelected(data)
     } catch (err) {
       setError(err.message)
     }
   }
 
-  if (loading) return <p>Loading history...</p>
-  if (error) return <p className="error-text">{error}</p>
-  if (analyses.length === 0) return <p>No analyses yet.</p>
+  if (loading) return <p className="note">Opening the folder…</p>
+  if (error) return <p className="note note-red">{error}</p>
+  if (analyses.length === 0) {
+    return <p className="note">This folder is empty. Analyze a resume to file your first report.</p>
+  }
 
   return (
-    <div className="history-list">
-      <table>
-        <thead>
-          <tr>
-            <th>Resume</th>
-            <th>Score</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {analyses.map((item) => (
-            <tr
-              key={item.id}
+    <div className="ledger-wrap">
+      <ul className="ledger">
+        {analyses.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              className={selected?.id === item.id ? 'ledger-row selected' : 'ledger-row'}
               onClick={() => viewDetail(item.id)}
-              className={selected?.id === item.id ? 'selected' : ''}
             >
-              <td>{item.resume_filename}</td>
-              <td>{item.score}</td>
-              <td>{new Date(item.created_at).toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              <span className="ledger-name">{item.resume_filename}</span>
+              <span className="ledger-leader" aria-hidden="true" />
+              <span className="ledger-score">{item.score}</span>
+              <span className="ledger-date">{formatDate(item.created_at)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
 
       {selected && <ReportView report={selected} />}
     </div>
