@@ -29,6 +29,13 @@ class SlidingWindowLimiter:
             hits.append(now)
             return None
 
+    def refund(self, key: str) -> None:
+        """Give back the most recent hit for `key`."""
+        with self._lock:
+            hits = self._hits.get(key)
+            if hits:
+                hits.pop()
+
     def reset(self) -> None:
         with self._lock:
             self._hits.clear()
@@ -51,6 +58,11 @@ def _client_ip(request: Request) -> str:
     # Behind a reverse proxy this is the proxy's address; run uvicorn with
     # --proxy-headers/--forwarded-allow-ips so request.client reflects the real client.
     return request.client.host if request.client else "unknown"
+
+
+def refund_user(name: str, user: User) -> None:
+    """Undo a limit_by_user hit, e.g. when the request failed through no fault of the user."""
+    limiter.refund(f"{name}:user:{user.id}")
 
 
 def limit_by_ip(name: str, limit: int, window_seconds: int):

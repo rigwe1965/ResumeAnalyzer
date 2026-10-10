@@ -9,7 +9,7 @@ from google import genai
 
 from app import auth, db
 from app.gemini_client import analyze_resume, build_client
-from app.rate_limit import limit_by_ip, limit_by_user
+from app.rate_limit import limit_by_ip, limit_by_user, refund_user
 from app.resume_parser import MAX_RESUME_BYTES, extract_resume_text
 from app.schemas import AnalysisRecord, AnalysisSummary, Credentials, TokenResponse, User
 from app.static import mount_frontend
@@ -122,7 +122,13 @@ def analyze(
     resume_text = extract_resume_text(resume.filename, content)
 
     client = _get_gemini_client()
-    report = analyze_resume(client, GEMINI_MODEL, resume_text, job_description)
+    try:
+        report = analyze_resume(client, GEMINI_MODEL, resume_text, job_description)
+    except HTTPException as exc:
+        # Upstream (Gemini) failures aren't the user's fault, so don't use up their hourly quota.
+        if exc.status_code == 502:
+            refund_user("analyze", user)
+        raise
 
     return db.save_analysis(
         user_id=user.id,

@@ -2,8 +2,10 @@ import json
 import logging
 import time
 
+import httpx
 from fastapi import HTTPException
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from app.schemas import AnalysisReport
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 REQUEST_TIMEOUT_MS = 60_000
 MAX_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 1.5
+# HTTP statuses worth retrying; anything else (bad key, no credits, bad request) can't succeed.
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 ANALYSIS_PROMPT_TEMPLATE = """You are an expert resume reviewer and technical recruiter.
 Compare the resume below against the job description and produce a fitment analysis.
@@ -37,6 +41,12 @@ Return your analysis with:
 - skill_gaps: skills or experience the job requires that the resume doesn't demonstrate
 - phrasing_suggestions: concrete suggestions for rewording or restructuring resume content to better match the job
 """
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, genai_errors.APIError):
+        return exc.code in RETRYABLE_STATUS_CODES
+    return isinstance(exc, (httpx.TransportError, TimeoutError))
 
 
 def build_client(api_key: str) -> genai.Client:
@@ -68,9 +78,9 @@ def analyze_resume(client: genai.Client, model: str, resume_text: str, job_descr
                 ),
             )
             break
-        except Exception:
+        except Exception as exc:
             logger.exception("Gemini request failed (attempt %d/%d)", attempt, MAX_ATTEMPTS)
-            if attempt == MAX_ATTEMPTS:
+            if attempt == MAX_ATTEMPTS or not _is_retryable(exc):
                 raise HTTPException(
                     status_code=502,
                     detail="The analysis service is unavailable right now. Please try again.",
