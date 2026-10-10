@@ -1,8 +1,8 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
@@ -12,8 +12,7 @@ from app.gemini_client import analyze_resume, build_client
 from app.rate_limit import limit_by_ip, limit_by_user
 from app.resume_parser import MAX_RESUME_BYTES, extract_resume_text
 from app.schemas import AnalysisRecord, AnalysisSummary, Credentials, TokenResponse, User
-
-load_dotenv()
+from app.static import mount_frontend
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
@@ -147,3 +146,9 @@ def get_analysis(
     if record is None:
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return record
+
+
+# Serve the built frontend (same origin as the API) when it exists. Must stay last so the
+# catch-all route doesn't shadow the API routes above.
+STATIC_DIR = Path(os.getenv("STATIC_DIR", Path(__file__).resolve().parents[2] / "frontend" / "dist"))
+mount_frontend(app, STATIC_DIR)

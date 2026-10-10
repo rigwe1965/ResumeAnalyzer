@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    # Needs GEMINI_API_KEY and JWT_SECRET (see backend/.env.example).
+    env_file:
+      - backend/.env
+    environment:
+      # Same-origin deployment, so CORS isn't needed. List origins here if you host the
+      # frontend elsewhere.
+      CORS_ORIGINS: ""
+      # If you put a reverse proxy in front, set this to its address so rate limits use the
+      # real client IP (uvicorn only trusts forwarded headers from these addresses):
+      # FORWARDED_ALLOW_IPS: "172.18.0.1"
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+volumes:
+  app-data:

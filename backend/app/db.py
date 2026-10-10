@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -6,7 +7,9 @@ from pathlib import Path
 
 from app.schemas import AnalysisRecord, AnalysisReport, AnalysisSummary, User
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "resume_analyzer.db"
+DB_PATH = Path(
+    os.getenv("DATABASE_PATH", Path(__file__).resolve().parent.parent / "data" / "resume_analyzer.db")
+)
 
 
 class EmailAlreadyRegistered(Exception):
