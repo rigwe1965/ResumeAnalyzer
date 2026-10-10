@@ -1,5 +1,7 @@
+import httpx
 import pytest
 from fastapi import HTTPException
+from google.genai import errors as genai_errors
 
 from app import gemini_client
 from app.schemas import AnalysisReport
@@ -42,18 +44,36 @@ def test_prompt_survives_braces_in_user_text():
     assert "resume {x}" in prompt and "jd {y}" in prompt
 
 
-def test_retries_then_succeeds():
-    client = FakeClient([RuntimeError("boom"), FakeResponse(parsed=REPORT)])
+def _api_error(code):
+    return genai_errors.APIError(code, {"error": {"message": "secret-detail"}}, None)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [_api_error(503), _api_error(429), _api_error(500), httpx.ConnectError("down"), TimeoutError()],
+)
+def test_transient_errors_are_retried_then_succeed(error):
+    client = FakeClient([error, FakeResponse(parsed=REPORT)])
     assert gemini_client.analyze_resume(client, "m", "r", "j") == REPORT
     assert client.models.calls == 2
 
 
 def test_gives_up_after_max_attempts_without_leaking_error():
-    client = FakeClient([RuntimeError("secret-detail")] * gemini_client.MAX_ATTEMPTS)
+    client = FakeClient([_api_error(503)] * gemini_client.MAX_ATTEMPTS)
     with pytest.raises(HTTPException) as exc:
         gemini_client.analyze_resume(client, "m", "r", "j")
     assert exc.value.status_code == 502
     assert "secret-detail" not in exc.value.detail
+    assert client.models.calls == gemini_client.MAX_ATTEMPTS
+
+
+@pytest.mark.parametrize("error", [_api_error(402), _api_error(401), _api_error(400), RuntimeError("bug")])
+def test_permanent_errors_are_not_retried(error):
+    client = FakeClient([error, FakeResponse(parsed=REPORT)])
+    with pytest.raises(HTTPException) as exc:
+        gemini_client.analyze_resume(client, "m", "r", "j")
+    assert exc.value.status_code == 502
+    assert client.models.calls == 1
 
 
 def test_falls_back_to_json_text():

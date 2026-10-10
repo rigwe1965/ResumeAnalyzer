@@ -131,6 +131,44 @@ def test_analyze_rate_limited_per_user_with_retry_after(client, fake_report, mon
     assert _analyze(client, other).status_code == 200
 
 
+def test_upstream_failures_do_not_use_up_the_analyze_quota(client, fake_report, monkeypatch):
+    from fastapi import HTTPException
+
+    def failing(*args, **kwargs):
+        raise HTTPException(status_code=502, detail="upstream down")
+
+    monkeypatch.setattr(main, "analyze_resume", failing)
+    headers = auth_headers(client)
+
+    assert [_analyze(client, headers).status_code for _ in range(15)] == [502] * 15
+
+    # The quota is still intact for real work once Gemini recovers.
+    monkeypatch.setattr(main, "analyze_resume", lambda *a, **k: fake_report)
+    assert [_analyze(client, headers).status_code for _ in range(10)] == [200] * 10
+    assert _analyze(client, headers).status_code == 429
+
+
+def test_invalid_input_still_counts_toward_the_quota(client, headers):
+    bad = lambda: client.post(  # noqa: E731
+        "/api/analyze",
+        files={"resume": ("cv.docx", b"x", "application/octet-stream")},
+        data={"job_description": "x"},
+        headers=headers,
+    )
+    assert [bad().status_code for _ in range(10)] == [400] * 10
+    assert bad().status_code == 429
+
+
+def test_limiter_refund_gives_back_a_slot():
+    limiter.reset()
+    assert limiter.check("k", 1, 60) is None
+    assert limiter.check("k", 1, 60) is not None
+    limiter.refund("k")
+    assert limiter.check("k", 1, 60) is None
+    limiter.refund("never-seen")  # no-op
+    limiter.reset()
+
+
 def test_limiter_window_expires(monkeypatch):
     now = [1000.0]
     monkeypatch.setattr(rate_limit.time, "monotonic", lambda: now[0])
