@@ -1,13 +1,14 @@
 :root {
-  --paper: #faf8f4;
-  --paper-dim: #f2efe8;
-  --ink: #1e2129;
-  --ink-soft: #565b66;
-  --rule: #d9d4c8;
-  --red: #c0301f;
-  --red-soft: rgba(192, 48, 31, 0.12);
-  --moss: #4b6b4e;
-  --moss-soft: rgba(75, 107, 78, 0.12);
+  /* Brand: green and white. Change --brand to retheme the whole UI. */
+  --paper: #ffffff;
+  --paper-dim: #f1f7f3;
+  --ink: #14231a;
+  --ink-soft: #4f6056;
+  --rule: #d3e3d9;
+  --brand: #0f7a3d;
+  --brand-soft: rgba(15, 122, 61, 0.1);
+  /* Errors and low scores stay red so they still read as warnings. */
+  --danger: #b3261e;
 
   --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --hand: 'Kalam', 'Segoe Print', cursive;
@@ -28,15 +29,14 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1c1d22;
-    --paper-dim: #232429;
-    --ink: #eae7de;
-    --ink-soft: #a7a49b;
-    --rule: #3a3b3f;
-    --red: #e2604a;
-    --red-soft: rgba(226, 96, 74, 0.14);
-    --moss: #7fa982;
-    --moss-soft: rgba(127, 169, 130, 0.14);
+    --paper: #0f1a14;
+    --paper-dim: #14221a;
+    --ink: #e8f3ec;
+    --ink-soft: #9db3a5;
+    --rule: #28402f;
+    --brand: #4cc27f;
+    --brand-soft: rgba(76, 194, 127, 0.14);
+    --danger: #ef7b72;
   }
 }
 
@@ -67,6 +67,6 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--red);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
