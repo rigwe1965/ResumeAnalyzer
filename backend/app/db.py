@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,11 +9,17 @@ from app.schemas import AnalysisRecord, AnalysisReport, AnalysisSummary
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "resume_analyzer.db"
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect():
+    """Commit on success, roll back on error, and always close the connection."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -32,6 +39,7 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses (created_at)")
 
 
 def save_analysis(resume_filename: str, resume_text: str, job_description: str, report: AnalysisReport) -> AnalysisRecord:
@@ -68,7 +76,7 @@ def save_analysis(resume_filename: str, resume_text: str, job_description: str, 
 def list_analyses() -> list[AnalysisSummary]:
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT id, resume_filename, score, created_at FROM analyses ORDER BY created_at DESC"
+            "SELECT id, resume_filename, score, created_at FROM analyses ORDER BY created_at DESC, id DESC"
         ).fetchall()
     return [AnalysisSummary(**dict(row)) for row in rows]
 
