@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { apiFetch } from '../api'
 import ReportView from './ReportView'
 
 function formatDate(iso) {
@@ -16,9 +17,7 @@ function HistoryList() {
 
     const loadAnalyses = async () => {
       try {
-        const res = await fetch('/api/analyses')
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || "Couldn't open the history folder.")
+        const data = await apiFetch('/api/analyses')
         if (!cancelled) setAnalyses(data)
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -36,9 +35,7 @@ function HistoryList() {
   const viewDetail = async (id) => {
     setError(null)
     try {
-      const res = await fetch(`/api/analyses/${id}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || "Couldn't open that file.")
+      const data = await apiFetch(`/api/analyses/${id}`)
       setSelected(data)
     } catch (err) {
       setError(err.message)

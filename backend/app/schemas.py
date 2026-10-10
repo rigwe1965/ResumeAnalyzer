@@ -24,6 +24,22 @@ class AnalysisRecord(AnalysisReport):
     created_at: str
 
 
+class User(BaseModel):
+    id: int
+    email: str
+
+
+class Credentials(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=1024)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+
 class AnalysisSummary(BaseModel):
     """Lightweight row for the history list view."""
 

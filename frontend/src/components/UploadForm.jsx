@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { apiFetch } from '../api'
 
 function UploadForm({ onAnalyzed }) {
   const [resumeFile, setResumeFile] = useState(null)
@@ -26,14 +27,10 @@ function UploadForm({ onAnalyzed }) {
     formData.append('job_description', jobDescription)
 
     try {
-      const res = await fetch('/api/analyze', {
+      const data = await apiFetch('/api/analyze', {
         method: 'POST',
         body: formData,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'That analysis failed. Try again.')
-      }
       onAnalyzed(data)
     } catch (err) {
       setError(err.message)
